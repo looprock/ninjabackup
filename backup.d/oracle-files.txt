@@ -1,0 +1,6 @@
+- /etc/svc/volatile
+- /etc/sysevent
+/etc
+/ora/product
+/ora/admin
+- /

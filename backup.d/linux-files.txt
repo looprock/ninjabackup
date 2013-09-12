@@ -1,0 +1,35 @@
+- /etc/vfontcap
+- /etc/rmt
+/etc
+/home
+/root
+- /opt/log4cpp-0.2.7
+- /opt/j2sdk-1.4.2_06
+- /opt/apache-ant-1.6.2
+- /opt/backupninja
+- /opt/local
+- /opt/lost+found
+- /opt/snap/releases
+- /opt/img
+- /opt/src
+- /opt/tmp
+/opt
+- /var/account
+- /var/cache
+- /var/db
+- /var/empty
+- /var/gdm
+- /var/local
+- /var/lock
+- /var/log
+- /var/lost+found
+- /var/mail
+- /var/net-snmp
+- /var/nis
+- /var/opt
+- /var/preserve
+- /var/run
+- /var/tmp
+- /var/yp
+/var
+- /
