@@ -1,0 +1,181 @@
+#!/bin/sh
+
+# version: 0.0.4
+
+source /etc/ninja.conf
+
+#touch ${BUCKEDIR}/logs/ninjabackup-${BUCKDATE}.${logID}.log
+BUCKLOG="${BUCKEDIR}/logs/ninjabackup-${BUCKDATE}.log"
+
+# print out usage message
+printerr() {
+ echo "Usage: $0 [all/run] [short name]"
+ echo "	all - process all logs in /etc/backup.d"
+ echo "	run - back up a single host, requires shortname (i.e. [shortname].conf)"
+ echo "	debug - run + print output, requires shortname (i.e. [shortname].conf)"
+ echo "	split - process all confs in multi procs, requires: directory, log ID"
+ exit 1
+}
+
+# backup a single host with a configuration in /etc/backup.d, print output, don't log
+debugone() {
+ i="${BCDIR}/${SHORTNAME}.conf"
+ echo "------------------------------------------------------"
+ echo "Using config: ${i}"
+ OPTIONS=""
+ source ${i}
+ tmpfile="/tmp/${CLIENT}.tmp"
+ destdir="${BUCKEDIR}/${CLIENT}"
+ if [ ! -d ${destdir} ]; then
+    mkdir ${destdir}
+    echo "Created: ${destdir}"
+    FORCE="--force"
+ fi
+
+ filelist="${BCDIR}/${CLIENT}-files.txt"
+ if [ -f ${filelist} ]; then
+    cat ${BCDIR}/${CLIENT}-files.txt > ${tmpfile}
+ else
+    cat ${BCDIR}/${SYSTYPE}-files.txt > ${tmpfile}
+ fi
+ echo "Running:"
+ echo "${RDIFF} ${FORCE} ${OPTIONS} --include-globbing-filelist ${tmpfile} ${ADDRESS}::/ ${destdir}"
+ ${RDIFF} ${COMP_OPTIONS} --include-globbing-filelist ${tmpfile} ${ADDRESS}::/ ${destdir}
+ echo "------------------------------------------------------"
+ echo "DONE!!!"
+ exit 0
+}
+
+# general backup routine. If you change this, also change above
+backitup() {
+ echo "Using config: ${i}" >> ${BUCKLOG}
+ OPTIONS=""
+ source ${i}
+ tmpfile="/tmp/${CLIENT}.tmp"
+ destdir="${BUCKEDIR}/${CLIENT}"
+ if [ ! -d ${destdir} ]; then
+    mkdir ${destdir}
+    echo "Created: ${destdir}" >> ${BUCKLOG}
+    FORCE="--force"
+ fi
+
+ filelist="${BCDIR}/${CLIENT}-files.txt"
+ if [ -f ${filelist} ]; then
+    cat ${BCDIR}/${CLIENT}-files.txt > ${tmpfile}
+ else
+    cat ${BCDIR}/${SYSTYPE}-files.txt > ${tmpfile}
+ fi
+ echo "`date` running:" >> ${BUCKLOG}
+ echo "${RDIFF} ${FORCE} ${OPTIONS} --include-globbing-filelist ${tmpfile} ${ADDRESS}::/ ${destdir}" >> ${BUCKLOG}
+ ${RDIFF} ${COMP_OPTIONS} --include-globbing-filelist ${tmpfile} ${ADDRESS}::/ ${destdir} >> ${BUCKLOG} 2>&1
+}
+
+# backup all hosts with configs in /etc/backup.d
+backupall() {
+ #echo "------------------------------------------------------" >> ${BUCKLOG}
+ #echo "Backuping up backup configs." >> ${BUCKLOG}
+ #/usr/bin/rsync -a /etc/backup.d /opt/backup/backup-hd/etc/
+ for i in `ls ${BCDIR}/*.conf`
+ do
+  echo "------------------------------------------------------" >> ${BUCKLOG}
+  backitup
+ done
+ echo "------------------------------------------------------" >> ${BUCKLOG}
+ echo "DONE!!!" >> ${BUCKLOG}
+ exit 0
+}
+
+# backup a single host with a configuration in /etc/backup.d
+backupone() {
+ i="${BCDIR}/${SHORTNAME}.conf"
+ echo "------------------------------------------------------" >> ${BUCKLOG}
+ backitup
+ echo "------------------------------------------------------" >> ${BUCKLOG}
+ echo "DONE!!!" >> ${BUCKLOG}
+ exit 0
+}
+
+####################### This section fakes threads ##########################
+
+# general backup routine. If you change this, also change above
+backparthost() {
+ i=${1}
+ echo "Using config: ${i}" >> ${BUCKLOG}
+ OPTIONS=""
+ source ${i}
+ tmpfile="/tmp/${CLIENT}.tmp"
+ destdir="${BUCKEDIR}/${CLIENT}"
+ if [ ! -d ${destdir} ]; then
+    mkdir ${destdir}
+    echo "Created: ${destdir}" >> ${BUCKLOG}
+    FORCE="--force"
+ fi
+
+ filelist="${BCDIR}/${CLIENT}-files.txt"
+ if [ -f ${filelist} ]; then
+    cat ${BCDIR}/${CLIENT}-files.txt > ${tmpfile}
+ else
+    cat ${BCDIR}/${SYSTYPE}-files.txt > ${tmpfile}
+ fi
+ echo "`date` running:" >> ${BUCKLOG}
+ echo "${RDIFF} ${FORCE} ${OPTIONS} --include-globbing-filelist ${tmpfile} ${ADDRESS}::/ ${destdir}" >> ${BUCKLOG}
+ ${RDIFF} ${COMP_OPTIONS} --include-globbing-filelist ${tmpfile} ${ADDRESS}::/ ${destdir} >> ${BUCKLOG} 2>&1
+}
+
+# backup all hosts with configs in /etc/backup.d
+
+backupparts() {
+ BCDIR=$1
+ BUCKLOG="${tmpdir}/ninjabackup-${BUCKDATE}.log.${2}"
+ #BUCKLOG=${BUCKLOG}.${2}
+ #echo "------------------------------------------------------" >> ${BUCKLOG}
+ #echo "Backuping up backup configs." >> ${BUCKLOG}
+ #/usr/bin/rsync -a /etc/backup.d /opt/backup/backup-hd/etc/
+ for i in `ls ${BCDIR}/*.conf`
+ do
+  echo "------------------------------------------------------" >> ${BUCKLOG}
+  backparthost ${i} ${2}
+ done
+ echo "------------------------------------------------------" >> ${BUCKLOG}
+ echo "DONE!!!" >> ${BUCKLOG}
+ exit 0
+}
+
+######################### End fake threads ####################################
+
+
+if [ "$1" ]; then
+ if [ "$1" == "all" ]; then
+        backupall
+ elif [ "$1" == "run" ]; then
+  if [ "$2" ]; then
+ 	SHORTNAME=$2 
+        backupone
+  else
+	printerr
+  fi
+ elif [ "$1" == "debug" ]; then
+  if [ "$2" ]; then
+        SHORTNAME=$2
+        debugone
+  else
+        printerr
+  fi
+ elif [ "$1" == "split" ]; then
+   if [ "$2" ]; then
+     BCDIR=$2
+     if [ "$3" ]; then
+        logID=$3
+	backupparts $2 $3
+     else
+	printerr
+     fi
+   else
+     printerr
+   fi
+ else
+        printerr
+ fi
+else
+ printerr
+fi

@@ -1,0 +1,32 @@
+#!/bin/sh
+
+# version: 0.0.4
+
+source /etc/ninja.conf
+
+touch ${BUCKEDIR}/logs/ninjakill-${BUCKDATE}.log
+BUCKLOG="${BUCKEDIR}/logs/ninjakill-${BUCKDATE}.log"
+
+echo >> $BUCKLOG
+echo "`date` starting old backups removal" >> $BUCKLOG
+df -h $BUCKEDIR >> $BUCKLOG 2>&1
+echo >> $BUCKLOG
+
+for dir in `ls -1 $BUCKEDIR | egrep -v "(backup-hd|logs)"`; do
+    if [ -d ${BUCKEDIR}/${dir}/rdiff-backup-data ]; then
+        echo >> $BUCKLOG
+        echo "`date` cleaning $dir with command :" >> $BUCKLOG
+        echo "$RDIFF --force --remove-older-than 2W  ${BUCKEDIR}/${dir}" >> $BUCKLOG
+        $RDIFF --force --remove-older-than 2W  ${BUCKEDIR}/${dir} >> $BUCKLOG 2>&1
+        echo >> $BUCKLOG
+    fi
+done
+
+echo >> $BUCKLOG
+echo "`date` old backups removal done" >> $BUCKLOG
+df -h $BUCKEDIR >> $BUCKLOG 2>&1
+echo >> $BUCKLOG
+
+LOG=`ls -1t /opt/backup/logs/ninjabackup-*.log |head -1`
+(df -h /opt/backup; /sbin/tw_cli /c0 show; cat $LOG) | egrep -v "( running:|include-globbing-filelist|version mismatch|match remote|------------|does not match source|import _librsync|import librsync|ListError )" | /bin/mailx -s "hdbackup report `date`" $REPORTTO
+
